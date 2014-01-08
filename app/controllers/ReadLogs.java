@@ -1,10 +1,13 @@
 package controllers;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -26,7 +29,6 @@ import models.Search;
 import models.Statistic;
 import models.StatisticSearch;
 import models.Stem;
-
 import play.Logger;
 import play.Play;
 import play.jobs.Job;
@@ -42,10 +44,14 @@ public class ReadLogs extends Job {
 		} else {
 			logDir=new File(Play.configuration.getProperty("access.log.file.dir.dev"));
 		}
-		for (File logFile : logDir.listFiles()){
+
 			BufferedReader br = null;
+			File logFile = null;
 			try {
-				br = new BufferedReader(new FileReader(logFile));
+				logFile = new File("/home/kajoh/Dokument/Arbete/Ksamsök/loggar/localhost_access_log.2013-12-12.txt"/*output.txt"Play.configuration.getProperty("access.log.file.dir.dev")*/);
+				FileInputStream fstream = new FileInputStream(logFile);
+				DataInputStream in = new DataInputStream(fstream);
+				br = new BufferedReader(new InputStreamReader(in));
 				String logEntry;
 				while ((logEntry = br.readLine()) != null){
 					Pattern p = Pattern.compile(".*(\\d{2}/\\w{3}/\\d{4}:\\d{2}:\\d{2}:\\d{2}).*GET\\s/(.*)\\sHTTP");
@@ -73,7 +79,6 @@ public class ReadLogs extends Job {
 					}
 				}
 			}
-		}
 	}
 
 	private void storeSOCHObjReq(Matcher m) {
@@ -112,7 +117,7 @@ public class ReadLogs extends Job {
 		try {
 			Date date = new SimpleDateFormat(datePattern).parse(m.group(1));
 			String httpReq = m.group(2);
-			String[] apiReq=httpReq.split("?");
+			String[] apiReq=httpReq.split("\\?");
 			if (apiReq.length!=2){
 				Logger.error("Erroneous api-request: %s", httpReq);
 			} else {
@@ -129,6 +134,7 @@ public class ReadLogs extends Job {
 				String prefix = methodReq.get(KsamsokStatConstants.PREFIX);
 				String words = methodReq.get(KsamsokStatConstants.WORDS);
 				//Store to db
+				Logger.info("METHOD: %s", methodReq.get(KsamsokStatConstants.METHOD));
 				switch (methodReq.get(KsamsokStatConstants.METHOD)){
 				case KsamsokStatConstants.ALL_INDEX_UNIQUE_VALUE_COUNT :
 					new AllIndexUniqueValueCount(date, apiKey, query, index).save();
@@ -180,13 +186,15 @@ public class ReadLogs extends Job {
 	}
 
 	private HashMap<String, String> parseApiReq(String apiReq) {
+		
 		HashMap<String, String> methodReq = new HashMap<String, String>();
 		String[] methodCall=apiReq.split("&");
 		if (methodCall.length<3){
 			Logger.error("Too few arguments in api-method call: %s", apiReq);
 		} else {
 			for(int i = 0; i < methodCall.length; i++){
-				String[] keyValue = methodCall[i].split("=",1);
+//				String[] keyValue = methodCall[i].split("=",1);
+				String[] keyValue = methodCall[i].split("=");
 				if (keyValue.length != 2){
 					Logger.error("Missing value to key or key to value in api-request: %s", apiReq);
 				} else {
